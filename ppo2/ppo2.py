@@ -497,8 +497,13 @@ class Runner(AbstractEnvRunner):
                 if maybe_ep_info is not None:
                     ep_infos.append(maybe_ep_info)
                 # action mask
-                env_action_mask = info.get('action_mask')
-                self.action_masks.append(flatten_action_mask(self.env.action_space, env_action_mask))
+
+                if 'reset_action_mask' in info:
+                    action_mask = self.env.get_attr("valid_actions")[0]
+                    self.action_masks.append(flatten_action_mask(self.env.action_space, action_mask))
+                else:
+                    env_action_mask = info.get('action_mask')
+                    self.action_masks.append(flatten_action_mask(self.env.action_space, env_action_mask))
             mb_rewards.append(rewards)
         # batch of steps to batch of rollouts
         mb_obs = np.asarray(mb_obs, dtype=self.obs.dtype)
