@@ -190,6 +190,8 @@ class DQN(OffPolicyRLModel):
 
             reset = True
             obs = self.env.reset()
+
+            action_mask = None
             # Retrieve unnormalized observation for saving into the buffer
             if self._vec_normalize_env is not None:
                 obs_ = self._vec_normalize_env.get_original_obs().squeeze()
@@ -213,10 +215,13 @@ class DQN(OffPolicyRLModel):
                     kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                     kwargs['update_param_noise_scale'] = True
                 with self.sess.as_default():
-                    action = self.act(np.array(obs)[None], update_eps=update_eps, **kwargs)[0]
+                    action = self.act(np.array(obs)[None], update_eps=update_eps, action_mask=action_mask, **kwargs)[0]
                 env_action = action
                 reset = False
                 new_obs, rew, done, info = self.env.step(env_action)
+
+                if info.get("action_mask") is not None:
+                    action_mask = info.get("action_mask")
 
                 self.num_timesteps += 1
 
@@ -234,6 +239,9 @@ class DQN(OffPolicyRLModel):
                 # Store transition in the replay buffer.
                 self.replay_buffer.add(obs_, action, reward_, new_obs_, float(done))
                 obs = new_obs
+
+                if action_mask is not None:
+                    action_mask = [action_mask]
                 # Save the unnormalized observation
                 if self._vec_normalize_env is not None:
                     obs_ = new_obs_
@@ -253,6 +261,8 @@ class DQN(OffPolicyRLModel):
                         obs = self.env.reset()
                     episode_rewards.append(0.0)
                     reset = True
+                    # if isinstance(self.env, VecEnv):
+                    action_mask = [self.env.get_attr("valid_actions")[0]]
 
                 # Do not train if the warmup phase is not over
                 # or if there are not enough samples in the replay buffer
@@ -325,25 +335,33 @@ class DQN(OffPolicyRLModel):
         callback.on_training_end()
         return self
 
-    def predict(self, observation, state=None, mask=None, deterministic=True):
+    def predict(self, observation, state=None, mask=None, deterministic=True, action_mask=None):
         observation = np.array(observation)
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
 
         observation = observation.reshape((-1,) + self.observation_space.shape)
+        action_masks = None
+        if action_mask is not None:
+            action_masks = []
+            for env_action_mask in action_mask:
+                if isinstance(self.env.action_space, gym.spaces.MultiDiscrete) and env_action_mask is not None:
+                    action_masks.append(np.concatenate(env_action_mask))
+                elif isinstance(self.env.action_space, gym.spaces.Discrete) and env_action_mask is not None:
+                    action_masks.append(env_action_mask)
         with self.sess.as_default():
-            actions, _, _ = self.step_model.step(observation, deterministic=deterministic)
+            actions, _, _ = self.step_model.step(observation, deterministic=deterministic, action_mask=action_masks)
 
         if not vectorized_env:
             actions = actions[0]
 
         return actions, None
 
-    def action_probability(self, observation, state=None, mask=None, actions=None, logp=False):
+    def action_probability(self, observation, state=None, mask=None, actions=None, logp=False, action_mask=None):
         observation = np.array(observation)
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
 
         observation = observation.reshape((-1,) + self.observation_space.shape)
-        actions_proba = self.proba_step(observation, state, mask)
+        actions_proba = self.proba_step(observation, state, mask, action_mask=action_mask)
 
         if actions is not None:  # comparing the action distribution, to given actions
             actions = np.array([actions])

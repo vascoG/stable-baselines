@@ -19,6 +19,7 @@ from stable_baselines.common.runners import AbstractEnvRunner
 from stable_baselines.common.vec_env import (VecEnvWrapper, VecEnv, DummyVecEnv,
                                              VecNormalize, unwrap_vec_normalize)
 from stable_baselines.common.callbacks import BaseCallback, CallbackList, ConvertCallback
+from stable_baselines.common.misc_util import flatten_action_mask
 from stable_baselines import logger
 
 
@@ -395,7 +396,7 @@ class BaseRLModel(ABC):
         pass
 
     @abstractmethod
-    def predict(self, observation, state=None, mask=None, deterministic=False):
+    def predict(self, observation, state=None, mask=None, deterministic=False, action_mask=None):
         """
         Get the model's action from an observation
 
@@ -408,7 +409,7 @@ class BaseRLModel(ABC):
         pass
 
     @abstractmethod
-    def action_probability(self, observation, state=None, mask=None, actions=None, logp=False):
+    def action_probability(self, observation, state=None, mask=None, actions=None, logp=False, action_mask=None):
         """
         If ``actions`` is ``None``, then get the model's action probability distribution from a given observation.
 
@@ -807,16 +808,22 @@ class ActorCriticRLModel(BaseRLModel):
               log_interval=100, tb_log_name="run", reset_num_timesteps=True):
         pass
 
-    def predict(self, observation, state=None, mask=None, deterministic=False):
+    def predict(self, observation, state=None, mask=None, deterministic=False, action_mask=None):
         if state is None:
             state = self.initial_state
         if mask is None:
             mask = [False for _ in range(self.n_envs)]
+
+        action_masks = []
+        if action_mask is not None:
+            for env_action_mask in action_mask:
+                action_masks.append(flatten_action_mask(self.env.action_space, env_action_mask))
+
         observation = np.array(observation)
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
 
         observation = observation.reshape((-1,) + self.observation_space.shape)
-        actions, _, states, _ = self.step(observation, state, mask, deterministic=deterministic)
+        actions, _, states, _ = self.step(observation, state, mask, action_mask=action_masks, deterministic=deterministic)
 
         clipped_actions = actions
         # Clip the actions to avoid out of bound error
@@ -830,7 +837,7 @@ class ActorCriticRLModel(BaseRLModel):
 
         return clipped_actions, states
 
-    def action_probability(self, observation, state=None, mask=None, actions=None, logp=False):
+    def action_probability(self, observation, state=None, mask=None, actions=None, logp=False, action_mask=None):
         if state is None:
             state = self.initial_state
         if mask is None:
@@ -839,7 +846,7 @@ class ActorCriticRLModel(BaseRLModel):
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
 
         observation = observation.reshape((-1,) + self.observation_space.shape)
-        actions_proba = self.proba_step(observation, state, mask)
+        actions_proba = self.proba_step(observation, state, mask, action_mask)
 
         if len(actions_proba) == 0:  # empty list means not implemented
             warnings.warn("Warning: action probability is not implemented for {} action space. Returning None."
@@ -989,11 +996,11 @@ class OffPolicyRLModel(BaseRLModel):
         pass
 
     @abstractmethod
-    def predict(self, observation, state=None, mask=None, deterministic=False):
+    def predict(self, observation, state=None, mask=None, deterministic=False, action_mask=None):
         pass
 
     @abstractmethod
-    def action_probability(self, observation, state=None, mask=None, actions=None, logp=False):
+    def action_probability(self, observation, state=None, mask=None, actions=None, logp=False, action_mask=None):
         pass
 
     @abstractmethod

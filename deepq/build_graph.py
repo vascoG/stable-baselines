@@ -140,23 +140,25 @@ def build_act(q_func, ob_space, ac_space, stochastic_ph, update_eps_ph, sess):
 
     policy = q_func(sess, ob_space, ac_space, 1, 1, None)
     obs_phs = (policy.obs_ph, policy.processed_obs)
-    deterministic_actions = tf.argmax(policy.q_values, axis=1)
+    deterministic_actions = tf.argmax(tf.add(policy.q_values, policy.action_mask_ph), axis=1)
 
     batch_size = tf.shape(policy.obs_ph)[0]
-    n_actions = ac_space.nvec if isinstance(ac_space, MultiDiscrete) else ac_space.n
-    random_actions = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=n_actions, dtype=tf.int64)
+    random_actions = tf.distributions.Categorical(probs=policy.action_mask_probs_ph, dtype=tf.int64).sample()
     chose_random = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=1, dtype=tf.float32) < eps
     stochastic_actions = tf.where(chose_random, random_actions, deterministic_actions)
 
     output_actions = tf.cond(stochastic_ph, lambda: stochastic_actions, lambda: deterministic_actions)
     update_eps_expr = eps.assign(tf.cond(update_eps_ph >= 0, lambda: update_eps_ph, lambda: eps))
-    _act = tf_util.function(inputs=[policy.obs_ph, stochastic_ph, update_eps_ph],
+    _act = tf_util.function(inputs=[policy.obs_ph, stochastic_ph, update_eps_ph, policy.action_mask_ph, policy.action_mask_probs_ph],
                             outputs=output_actions,
                             givens={update_eps_ph: -1.0, stochastic_ph: True},
                             updates=[update_eps_expr])
 
-    def act(obs, stochastic=True, update_eps=-1):
-        return _act(obs, stochastic, update_eps)
+    def act(obs, stochastic=True, update_eps=-1, action_mask=None):
+        if action_mask is not None:
+            return _act(obs, stochastic, update_eps, policy.prepare_action_mask(action_mask), action_mask)
+        else:
+            return _act(obs, stochastic, update_eps)
 
     return act, obs_phs
 
@@ -260,10 +262,10 @@ def build_act_with_param_noise(q_func, ob_space, ac_space, stochastic_ph, update
 
     # Put everything together.
     perturbed_deterministic_actions = tf.argmax(perturbable_policy.q_values, axis=1)
-    deterministic_actions = tf.argmax(policy.q_values, axis=1)
+    deterministic_actions = tf.argmax(tf.add(policy.q_values, policy.action_mask_ph), axis=1)
     batch_size = tf.shape(policy.obs_ph)[0]
     n_actions = ac_space.nvec if isinstance(ac_space, MultiDiscrete) else ac_space.n
-    random_actions = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=n_actions, dtype=tf.int64)
+    random_actions = tf.distributions.Categorical(probs=policy.action_mask_probs_ph, dtype=tf.int64).sample()
     chose_random = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=1, dtype=tf.float32) < eps
     perturbed_stochastic_actions = tf.where(chose_random, random_actions, perturbed_deterministic_actions)
     stochastic_actions = tf.where(chose_random, random_actions, deterministic_actions)
@@ -280,21 +282,21 @@ def build_act_with_param_noise(q_func, ob_space, ac_space, stochastic_ph, update
         update_param_noise_thres_expr,
     ]
 
-    _act = tf_util.function(inputs=[policy.obs_ph, stochastic_ph, update_eps_ph],
+    _act = tf_util.function(inputs=[policy.obs_ph, stochastic_ph, update_eps_ph, policy.action_mask_ph, policy.action_mask_probs_ph],
                             outputs=output_actions,
                             givens={update_eps_ph: -1.0, stochastic_ph: True},
                             updates=[update_eps_expr])
 
     _perturbed_act = tf_util.function(
         inputs=[policy.obs_ph, stochastic_ph, update_eps_ph, reset_ph, update_param_noise_threshold_ph,
-                update_param_noise_scale_ph],
+                update_param_noise_scale_ph, policy.action_mask_ph, policy.action_mask_probs_ph],
         outputs=perturbed_output_actions,
         givens={update_eps_ph: -1.0, stochastic_ph: True, reset_ph: False, update_param_noise_threshold_ph: False,
                 update_param_noise_scale_ph: False},
         updates=updates)
 
     def act(obs, reset=None, update_param_noise_threshold=None, update_param_noise_scale=None, stochastic=True,
-            update_eps=-1):
+            update_eps=-1, action_mask=None):
         """
         get the action from the current observation
 
@@ -311,10 +313,17 @@ def build_act_with_param_noise(q_func, ob_space, ac_space, stochastic_ph, update
             performed for every element of the batch.
         """
         if reset is None or update_param_noise_threshold is None or update_param_noise_scale is None:
-            return _act(obs, stochastic, update_eps)
+            if action_mask is not None:
+                return _act(obs, stochastic, update_eps, policy.prepare_action_mask(action_mask), action_mask)
+            else:
+                return _act(obs, stochastic, update_eps)
         else:
-            return _perturbed_act(obs, stochastic, update_eps, reset, update_param_noise_threshold,
-                                  update_param_noise_scale)
+            if action_mask is not None:
+                return _perturbed_act(obs, stochastic, update_eps, reset, update_param_noise_threshold,
+                                       update_param_noise_scale, policy.prepare_action_mask(action_mask), action_mask)
+            else:
+                return _perturbed_act(obs, stochastic, update_eps, reset, update_param_noise_threshold,
+                                       update_param_noise_scale)
 
     return act, obs_phs
 
@@ -457,7 +466,8 @@ def build_train(q_func, ob_space, ac_space, optimizer, sess, grad_norm_clipping=
             target_policy.obs_ph,
             double_obs_ph,
             done_mask_ph,
-            importance_weights_ph
+            importance_weights_ph,
+            step_model.action_mask_ph
         ],
         outputs=[summary, td_error],
         updates=[optimize_expr]
