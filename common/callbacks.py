@@ -467,7 +467,8 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
                  best_model_save_path: str = None,
                  deterministic: bool = True,
                  render: bool = False,
-                 verbose: int = 1):
+                 verbose: int = 1,
+                 name=""):
         super(EvalCallbackWithTBRunningAverage, self).__init__(callback_on_new_best, verbose=verbose)
         self.n_eval_episodes = n_eval_episodes
         self.eval_freq = eval_freq
@@ -477,6 +478,7 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
         self.last_mean_reward = -np.inf
         self.deterministic = deterministic
         self.render = render
+        self.name = name
 
         # Convert to VecEnv for consistency
         if not isinstance(eval_env, VecEnv):
@@ -556,10 +558,10 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
                     return self._on_event()
 
             # Log scalar value
-            summary = tf.Summary(value=[tf.Summary.Value(tag='episode_reward/validation_reward', simple_value=mean_reward)])
+            summary = tf.Summary(value=[tf.Summary.Value(tag=f'episode_reward/validation_reward{self.name}', simple_value=mean_reward)])
             self.locals['writer'].add_summary(summary, self.num_timesteps)
 
-            summary = tf.Summary(value=[tf.Summary.Value(tag='episode_reward/validation_length', simple_value=mean_ep_length)])
+            summary = tf.Summary(value=[tf.Summary.Value(tag=f'episode_reward/validation_length{self.name}', simple_value=mean_ep_length)])
             self.locals['writer'].add_summary(summary, self.num_timesteps)
 
 
