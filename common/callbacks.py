@@ -469,7 +469,8 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
                  deterministic: bool = True,
                  render: bool = False,
                  verbose: int = 1,
-                 name=""):
+                 name="",
+                 comparison_performances=None):
         super(EvalCallbackWithTBRunningAverage, self).__init__(callback_on_new_best, verbose=verbose)
         self.n_eval_episodes = n_eval_episodes
         self.eval_freq = eval_freq
@@ -480,6 +481,10 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
         self.deterministic = deterministic
         self.render = render
         self.name = name
+        self.comparison_performance_str = ""
+        for key, value in comparison_performances.items():
+            self.comparison_performance_str += f"{key}: {value} - "
+
 
         # Convert to VecEnv for consistency
         if not isinstance(eval_env, VecEnv):
@@ -538,10 +543,19 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
 
             self.mean_rewards.append(mean_reward)
 
+            episode_performances = self.eval_env.get_attr("episode_performances")[0]
+            assert len(episode_performances) == len(episode_rewards)
+            perfs = []
+            for perf in episode_performances:
+                perfs.append(perf["achieved_cost"])
+
+            mean_performance = np.mean(perfs)
+
             if self.verbose > 0:
                 print("Eval num_timesteps={}, "
                       "episode_reward={:.2f} +/- {:.2f}".format(self.num_timesteps, mean_reward, std_reward))
                 print("Episode length: {:.2f} +/- {:.2f}".format(mean_ep_length, std_ep_length))
+                print(f"Mean performance: {mean_performance} - {self.comparison_performance_str}")
 
             moving_average = None
             if len(self.mean_rewards) == self.MEAN_REWARDS_LENGTH:
@@ -558,11 +572,16 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
                 if self.callback is not None:
                     return self._on_event()
 
+
+
             # Log scalar value
-            summary = tf.Summary(value=[tf.Summary.Value(tag=f'episode_reward/validation_reward{self.name}', simple_value=mean_reward)])
+            summary = tf.Summary(value=[tf.Summary.Value(tag=f'episode_reward/validation_reward_{self.name}', simple_value=mean_reward)])
             self.locals['writer'].add_summary(summary, self.num_timesteps)
 
-            summary = tf.Summary(value=[tf.Summary.Value(tag=f'episode_reward/validation_length{self.name}', simple_value=mean_ep_length)])
+            summary = tf.Summary(value=[tf.Summary.Value(tag=f'episode_reward/validation_length_{self.name}', simple_value=mean_ep_length)])
+            self.locals['writer'].add_summary(summary, self.num_timesteps)
+
+            summary = tf.Summary(value=[tf.Summary.Value(tag=f'episode_reward/validation_achieved_percentage_{self.name}', simple_value=mean_performance)])
             self.locals['writer'].add_summary(summary, self.num_timesteps)
 
 
