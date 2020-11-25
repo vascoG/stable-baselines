@@ -49,7 +49,7 @@ class BaseCallback(ABC):
         RL model and the training environment for convenience.
         """
         self.model = model
-        self.training_env = model.get_env()
+        self.training_env = model.get_vec_normalize_env()
         self.logger = logger.Logger.CURRENT
         self._init_callback()
 
@@ -276,6 +276,7 @@ class EvalCallback(EventCallback):
     def _init_callback(self):
         # Does not work in some corner cases, where the wrapper is not the same
         if not type(self.training_env) is type(self.eval_env):
+            assert 1==2, "We should not reach this point"
             warnings.warn("Training and eval env are not of the same type"
                           "{} != {}".format(self.training_env, self.eval_env))
 
