@@ -358,8 +358,7 @@ class EvalCallbackWithTB(EventCallback):
         self.n_eval_episodes = n_eval_episodes
         self.eval_freq = eval_freq
         self.best_mean_reward = -np.inf
-        self.best_mean_performance = np.inf
-        self.best_model_step = np.inf
+        self.moving_average_step = np.inf
         self.last_mean_reward = -np.inf
         self.deterministic = deterministic
         self.render = render
@@ -425,7 +424,7 @@ class EvalCallbackWithTB(EventCallback):
                 if self.verbose > 0:
                     print("New best mean reward!")
                 if self.best_model_save_path is not None:
-                    self.best_model_step = self.n_calls
+                    self.moving_average_step = self.n_calls
                     self.model.save(os.path.join(self.best_model_save_path, 'best_model'))
                 self.best_mean_reward = mean_reward
                 # Trigger callback if needed
@@ -474,9 +473,10 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
         super(EvalCallbackWithTBRunningAverage, self).__init__(callback_on_new_best, verbose=verbose)
         self.n_eval_episodes = n_eval_episodes
         self.eval_freq = eval_freq
+        self.best_mean_ra_reward = -np.inf
         self.best_mean_reward = -np.inf
-        self.best_mean_performance = np.inf
-        self.best_model_step = np.inf
+        self.moving_average_step = None
+        self.best_model_step = None
         self.last_mean_reward = -np.inf
         self.deterministic = deterministic
         self.render = render
@@ -561,18 +561,24 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
             if len(self.mean_rewards) == self.MEAN_REWARDS_LENGTH:
                 moving_average = sum(self.mean_rewards) / self.MEAN_REWARDS_LENGTH
 
-            if moving_average is not None and moving_average > self.best_mean_reward:
+            if moving_average is not None and moving_average > self.best_mean_ra_reward:
                 if self.verbose > 0:
-                    print(f"New best mean reward: {moving_average} over {self.best_mean_reward}\n  {self.mean_rewards}")
+                    print(f"New best running average reward: {moving_average} over {self.best_mean_ra_reward}\n  {self.mean_rewards}")
                 if self.best_model_save_path is not None:
-                    self.best_model_step = self.n_calls
-                    self.model.save(os.path.join(self.best_model_save_path, 'best_model'))
-                self.best_mean_reward = moving_average
+                    self.moving_average_step = self.n_calls
+                    self.model.save(os.path.join(self.best_model_save_path, 'moving_average_model'))
+                self.best_mean_ra_reward = moving_average
                 # Trigger callback if needed
                 if self.callback is not None:
                     return self._on_event()
 
-
+            if mean_reward > self.best_mean_reward:
+                if self.verbose > 0:
+                    print(f"New best mean reward: {mean_reward} over {self.best_mean_reward}\n  {self.mean_rewards}")
+                if self.best_model_save_path is not None:
+                    self.best_model_step = self.n_calls
+                    self.model.save(os.path.join(self.best_model_save_path, 'best_mean_reward_model'))
+                self.best_mean_reward = mean_reward
 
             # Log scalar value
             summary = tf.Summary(value=[tf.Summary.Value(tag=f'episode_reward/validation_reward_{self.name}', simple_value=mean_reward)])
