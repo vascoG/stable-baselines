@@ -65,7 +65,6 @@ class DQN(OffPolicyRLModel):
         # TODO: replay_buffer refactoring
         super(DQN, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose, policy_base=DQNPolicy,
                                   requires_vec_env=False, policy_kwargs=policy_kwargs, seed=seed, n_cpu_tf_sess=n_cpu_tf_sess)
-
         self.param_noise = param_noise
         self.learning_starts = learning_starts
         self.train_freq = train_freq
@@ -191,7 +190,7 @@ class DQN(OffPolicyRLModel):
             reset = True
             obs = self.env.reset()
 
-            action_mask = None
+            action_mask = [self.env.get_attr("valid_actions")[0]]
             # Retrieve unnormalized observation for saving into the buffer
             if self._vec_normalize_env is not None:
                 obs_ = self._vec_normalize_env.get_original_obs().squeeze()
@@ -220,8 +219,7 @@ class DQN(OffPolicyRLModel):
                 reset = False
                 new_obs, rew, done, info = self.env.step(env_action)
 
-                if info.get("action_mask") is not None:
-                    action_mask = info.get("action_mask")
+                action_mask = [self.env.get_attr("valid_actions")[0]]
 
                 self.num_timesteps += 1
 
@@ -240,8 +238,6 @@ class DQN(OffPolicyRLModel):
                 self.replay_buffer.add(obs_, action, reward_, new_obs_, float(done))
                 obs = new_obs
 
-                if action_mask is not None:
-                    action_mask = [action_mask]
                 # Save the unnormalized observation
                 if self._vec_normalize_env is not None:
                     obs_ = new_obs_
