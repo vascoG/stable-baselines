@@ -547,7 +547,7 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
             assert len(episode_performances) == len(episode_rewards)
             perfs = []
             for perf in episode_performances:
-                perfs.append(perf["achieved_cost"])
+                perfs.append(round(perf["achieved_cost"], 2))
 
             mean_performance = np.mean(perfs)
 
@@ -555,7 +555,7 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
                 print("Eval num_timesteps={}, "
                       "episode_reward={:.2f} +/- {:.2f}".format(self.num_timesteps, mean_reward, std_reward))
                 print("Episode length: {:.2f} +/- {:.2f}".format(mean_ep_length, std_ep_length))
-                print(f"Mean performance: {mean_performance} - {self.comparison_performance_str}")
+                print(f"Mean performance: {mean_performance:.2f} ({perfs}) - {self.comparison_performance_str}")
 
             moving_average = None
             if len(self.mean_rewards) == self.MEAN_REWARDS_LENGTH:
