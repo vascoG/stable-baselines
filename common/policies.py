@@ -532,7 +532,8 @@ class LstmPolicy(RecurrentActorCriticPolicy):
     def step(self, obs, state=None, mask=None, deterministic=False, action_mask=None):
         feed_dict = {self.obs_ph: obs, self.states_ph: state, self.dones_ph: mask}
         if action_mask is not None and len(action_mask) != 0:
-            feed_dict[self.action_mask_ph] = self.prepare_action_mask(action_mask)
+            # feed_dict[self.action_mask_ph] = self.prepare_action_mask(action_mask)
+            feed_dict[self.action_mask_ph] = np.array(action_mask, dtype=np.float32)
         if deterministic:
             return self.sess.run([self.deterministic_action, self.value_flat, self.snew, self.neglogp],
                                  feed_dict)
@@ -543,7 +544,8 @@ class LstmPolicy(RecurrentActorCriticPolicy):
     def proba_step(self, obs, state=None, mask=None, action_mask=None):
         feed_dict = {self.obs_ph: obs, self.states_ph: state, self.dones_ph: mask}
         if action_mask is not None and len(action_mask) != 0:
-            feed_dict[self.action_mask_ph] = self.prepare_action_mask(action_mask)
+            # feed_dict[self.action_mask_ph] = self.prepare_action_mask(action_mask)
+            feed_dict[self.action_mask_ph] = np.array(action_mask, dtype=np.float32)
         return self.sess.run(self.policy_proba, feed_dict)
 
     def value(self, obs, state=None, mask=None):
@@ -606,7 +608,9 @@ class FeedForwardPolicy(ActorCriticPolicy):
     def step(self, obs, state=None, mask=None, deterministic=False, action_mask=None):
         feed_dict = {self.obs_ph: obs}
         if action_mask is not None and len(action_mask) != 0:
-            feed_dict[self.action_mask_ph] = self.prepare_action_mask(action_mask)
+            # feed_dict[self.action_mask_ph] = self.prepare_action_mask(action_mask)
+            # feed_dict[self.action_mask_ph] = np.array(action_mask, dtype=np.float32)
+            feed_dict[self.action_mask_ph] = action_mask
         if deterministic:
             action, value, neglogp = self.sess.run([self.deterministic_action, self.value_flat, self.neglogp],
                                                    feed_dict)
@@ -618,7 +622,9 @@ class FeedForwardPolicy(ActorCriticPolicy):
     def proba_step(self, obs, state=None, mask=None, action_mask=None):
         feed_dict = {self.obs_ph: obs}
         if action_mask is not None and len(action_mask) != 0:
-            feed_dict[self.action_mask_ph] = self.prepare_action_mask(action_mask)
+            # feed_dict[self.action_mask_ph] = self.prepare_action_mask(action_mask)
+            # feed_dict[self.action_mask_ph] = np.array(action_mask, dtype=np.float32)
+            feed_dict[self.action_mask_ph] = action_mask
         return self.sess.run(self.policy_proba, feed_dict)
 
     def value(self, obs, state=None, mask=None):
