@@ -483,7 +483,9 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
         self.name = name
         self.comparison_performance_str = ""
         for key, value in comparison_performances.items():
-            self.comparison_performance_str += f"{key}: {np.mean(value):.2f} ({value}) - "
+            if len(value) < 1:
+                continue
+            self.comparison_performance_str += f"{key}: {np.mean(value[-1]):.2f} ({value[-1]}) - "
 
 
         # Convert to VecEnv for consistency
