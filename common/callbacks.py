@@ -474,6 +474,7 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
         self.n_eval_episodes = n_eval_episodes
         self.eval_freq = eval_freq
         self.best_mean_ra_reward = -np.inf
+        self.best_mean_ra_reward_3 = -np.inf
         self.best_mean_reward = -np.inf
         self.moving_average_step = None
         self.best_model_step = None
@@ -506,6 +507,7 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
 
         self.MEAN_REWARDS_LENGTH = 10
         self.mean_rewards = collections.deque(maxlen=self.MEAN_REWARDS_LENGTH)
+        self.mean_rewards_3 = collections.deque(maxlen=3)
 
     def _init_callback(self):
         # Does not work in some corner cases, where the wrapper is not the same
@@ -544,6 +546,7 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
             self.last_mean_reward = mean_reward
 
             self.mean_rewards.append(mean_reward)
+            self.mean_rewards_3.append(mean_reward)
 
             episode_performances = self.eval_env.get_attr("episode_performances")[0]
             assert len(episode_performances) == len(episode_rewards)
@@ -573,6 +576,15 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
                 # Trigger callback if needed
                 if self.callback is not None:
                     return self._on_event()
+
+            moving_average_3 = None
+            if len(self.mean_rewards_3) == 3:
+                moving_average_3 = sum(self.mean_rewards_3) / 3
+
+            if moving_average_3 is not None and moving_average_3 > self.best_mean_ra_reward_3:
+                if self.best_model_save_path is not None:
+                    self.model.save(os.path.join(self.best_model_save_path, 'moving_average_model_3'))
+                self.best_mean_ra_reward_3 = moving_average_3
 
             if mean_reward > self.best_mean_reward:
                 if self.verbose > 0:
