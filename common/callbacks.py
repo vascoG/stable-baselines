@@ -488,6 +488,9 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
                 continue
             self.comparison_performance_str += f"{key}: {np.mean(value[-1]):.2f} ({value[-1]}) - "
 
+        self.model_appendix = ""
+        if name == "multi_validation":
+            self.model_appendix = "_mv"
 
         # Convert to VecEnv for consistency
         if not isinstance(eval_env, VecEnv):
@@ -571,7 +574,7 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
                     print(f"New best running average reward: {moving_average} over {self.best_mean_ra_reward}\n  {self.mean_rewards}")
                 if self.best_model_save_path is not None:
                     self.moving_average_step = self.n_calls
-                    self.model.save(os.path.join(self.best_model_save_path, 'moving_average_model'))
+                    self.model.save(os.path.join(self.best_model_save_path, f'moving_average_model{self.model_appendix}'))
                 self.best_mean_ra_reward = moving_average
                 # Trigger callback if needed
                 if self.callback is not None:
@@ -583,7 +586,7 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
 
             if moving_average_3 is not None and moving_average_3 > self.best_mean_ra_reward_3:
                 if self.best_model_save_path is not None:
-                    self.model.save(os.path.join(self.best_model_save_path, 'moving_average_model_3'))
+                    self.model.save(os.path.join(self.best_model_save_path, f'moving_average_model_3{self.model_appendix}'))
                 self.best_mean_ra_reward_3 = moving_average_3
 
             if mean_reward > self.best_mean_reward:
@@ -591,7 +594,7 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
                     print(f"New best mean reward: {mean_reward} over {self.best_mean_reward}\n  {self.mean_rewards}")
                 if self.best_model_save_path is not None:
                     self.best_model_step = self.n_calls
-                    self.model.save(os.path.join(self.best_model_save_path, 'best_mean_reward_model'))
+                    self.model.save(os.path.join(self.best_model_save_path, f'best_mean_reward_model{self.model_appendix}'))
                 self.best_mean_reward = mean_reward
 
             # Log scalar value
