@@ -576,7 +576,7 @@ class FeedForwardPolicy(ActorCriticPolicy):
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, layers=None, net_arch=None,
                  act_fun=tf.tanh, cnn_extractor=nature_cnn, feature_extraction="cnn", **kwargs):
         super(FeedForwardPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse,
-                                                scale=(feature_extraction == "cnn"))
+                                                scale=False)
 
         self._kwargs_check(feature_extraction, kwargs)
 
