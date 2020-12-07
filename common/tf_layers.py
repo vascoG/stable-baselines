@@ -62,7 +62,7 @@ def mlp(input_tensor, layers, activ_fn=tf.nn.relu, layer_norm=False):
 
 
 def conv(input_tensor, scope, *, n_filters, filter_size, stride,
-         pad='VALID', init_scale=1.0, data_format='NHWC', one_dim_bias=False):
+         pad='SAME', init_scale=1.0, data_format='NHWC', one_dim_bias=False):
     """
     Creates a 2d convolutional layer for TensorFlow
 
