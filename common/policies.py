@@ -12,6 +12,35 @@ from stable_baselines.common.distributions import make_proba_dist_type, Categori
     MultiCategoricalProbabilityDistribution, DiagGaussianProbabilityDistribution, BernoulliProbabilityDistribution
 from stable_baselines.common.input import observation_input
 
+def original_nature_cnn(scaled_images, **kwargs):
+    """
+    CNN from Nature paper.
+
+    :param scaled_images: (TensorFlow Tensor) Image input placeholder
+    :param kwargs: (dict) Extra keywords parameters for the convolutional layers of the CNN
+    :return: (TensorFlow Tensor) The CNN output layer
+    """
+    activ = tf.nn.relu
+    layer_1 = activ(conv(scaled_images, 'c1', n_filters=32, filter_size=8, stride=1, init_scale=np.sqrt(2), **kwargs))
+    layer_2 = activ(conv(layer_1, 'c2', n_filters=64, filter_size=4, stride=1, init_scale=np.sqrt(2), **kwargs))
+    layer_3 = activ(conv(layer_2, 'c3', n_filters=64, filter_size=3, stride=1, init_scale=np.sqrt(2), **kwargs))
+    layer_3 = conv_to_fc(layer_3)
+    return activ(linear(layer_3, 'fc1', n_hidden=512, init_scale=np.sqrt(2)))
+
+def new_cost_cnn(scaled_images, **kwargs):
+    """
+    CNN from Nature paper.
+
+    :param scaled_images: (TensorFlow Tensor) Image input placeholder
+    :param kwargs: (dict) Extra keywords parameters for the convolutional layers of the CNN
+    :return: (TensorFlow Tensor) The CNN output layer
+    """
+    activ = tf.nn.selu
+    layer_1 = activ(conv(scaled_images, 'c1', n_filters=32, filter_size=7, stride=1, init_scale=np.sqrt(2), **kwargs))
+    layer_2 = activ(conv(layer_1, 'c2', n_filters=64, filter_size=7, stride=1, init_scale=np.sqrt(2), **kwargs))
+    layer_3 = activ(conv(layer_2, 'c3', n_filters=64, filter_size=7, stride=1, init_scale=np.sqrt(2), **kwargs))
+    layer_3 = conv_to_fc(layer_3)
+    return activ(linear(layer_3, 'fc1', n_hidden=512, init_scale=np.sqrt(2)))
 
 def nature_cnn(scaled_images, **kwargs):
     """
@@ -75,6 +104,8 @@ def mlp_extractor(flat_observations, net_arch, act_fun):
     latent = flat_observations
     policy_only_layers = []  # Layer sizes of the network that only belongs to the policy network
     value_only_layers = []  # Layer sizes of the network that only belongs to the value network
+
+    # act_fun = tf.nn.selu
 
     # Iterate through the shared layers and build the shared parts of the network
     for idx, layer in enumerate(net_arch):
@@ -649,6 +680,22 @@ class FeedForwardPolicy(ActorCriticPolicy):
         return self.sess.run(self.value_flat, {self.obs_ph: obs})
 
 
+class CnnOriginalPolicy(FeedForwardPolicy):
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, **_kwargs):
+        super(CnnOriginalPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse, cnn_extractor=original_nature_cnn,
+                                        feature_extraction="cnn", **_kwargs)
+
+class CnnNewCostPolicy(FeedForwardPolicy):
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, **_kwargs):
+        super(CnnNewCostPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse, cnn_extractor=new_cost_cnn,
+                                        feature_extraction="cnn", **_kwargs)
+
+class CnnPolicy2(FeedForwardPolicy):
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, **_kwargs):
+        super(CnnPolicy2, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse, cnn_extractor=nature_cnn2,
+                                        feature_extraction="cnn", **_kwargs)
+
+
 class CnnPolicy(FeedForwardPolicy):
     """
     Policy object that implements actor critic, using a CNN (the nature CNN)
@@ -775,6 +822,9 @@ _policy_registry = {
         "MlpPolicy": MlpPolicy,
         "MlpLstmPolicy": MlpLstmPolicy,
         "MlpLnLstmPolicy": MlpLnLstmPolicy,
+        "CnnPolicy2": CnnPolicy2,
+        "CnnOriginalPolicy": CnnOriginalPolicy,
+        "CnnNewCostPolicy": CnnNewCostPolicy
     }
 }
 

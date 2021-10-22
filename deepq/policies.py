@@ -3,7 +3,7 @@ import tensorflow.contrib.layers as tf_layers
 import numpy as np
 from gym.spaces import Discrete
 
-from stable_baselines.common.policies import BasePolicy, nature_cnn, register_policy
+from stable_baselines.common.policies import BasePolicy, nature_cnn, original_nature_cnn, nature_cnn2, register_policy
 
 
 class DQNPolicy(BasePolicy):
@@ -192,6 +192,20 @@ class CnnPolicy(FeedForwardPolicy):
                                         feature_extraction="cnn", obs_phs=obs_phs, dueling=dueling,
                                         layer_norm=False, **_kwargs)
 
+class CnnOriginalPolicy(FeedForwardPolicy):
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch,
+                 reuse=False, obs_phs=None, dueling=True, **_kwargs):
+        super(CnnOriginalPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse, cnn_extractor=original_nature_cnn,
+                                        feature_extraction="cnn", obs_phs=obs_phs, dueling=dueling,
+                                        layer_norm=False, **_kwargs)
+
+class CnnPolicy2(FeedForwardPolicy):
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch,
+                 reuse=False, obs_phs=None, dueling=True, **_kwargs):
+        super(CnnPolicy2, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse, cnn_extractor=nature_cnn2,
+                                        feature_extraction="cnn", obs_phs=obs_phs, dueling=dueling,
+                                        layer_norm=False, **_kwargs)
+
 
 class LnCnnPolicy(FeedForwardPolicy):
     """
@@ -266,6 +280,8 @@ class LnMlpPolicy(FeedForwardPolicy):
 
 
 register_policy("CnnPolicy", CnnPolicy)
+register_policy("CnnOriginalPolicy", CnnOriginalPolicy)
+register_policy("CnnPolicy2", CnnPolicy2)
 register_policy("LnCnnPolicy", LnCnnPolicy)
 register_policy("MlpPolicy", MlpPolicy)
 register_policy("LnMlpPolicy", LnMlpPolicy)

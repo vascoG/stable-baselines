@@ -476,8 +476,8 @@ class EvalCallbackWithTBRunningAverage(EventCallback):
         self.best_mean_ra_reward = -np.inf
         self.best_mean_ra_reward_3 = -np.inf
         self.best_mean_reward = -np.inf
-        self.moving_average_step = None
-        self.best_model_step = None
+        self.moving_average_step = -1
+        self.best_model_step = -1
         self.last_mean_reward = -np.inf
         self.deterministic = deterministic
         self.render = render
