@@ -8,7 +8,8 @@ import gym
 import numpy as np
 
 import collections
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 from stable_baselines.common.vec_env import VecEnv, sync_envs_normalization, DummyVecEnv
 from stable_baselines.common.evaluation import evaluate_policy
